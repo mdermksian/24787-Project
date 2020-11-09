@@ -50,7 +50,7 @@ testing_data = tf.keras.preprocessing.image_dataset_from_directory(
 )
 
 print(training_data.list_files("/Users/ericrasmussen/Desktop/ML and AI/Project/archive-1/resized train 15/*.jpg"))
-
+num_classes = 5
 
 # object_methods = [method_name for method_name in dir(training_data)
 #                   if callable(getattr(training_data, method_name))]
@@ -72,14 +72,17 @@ for image_batch, labels_batch in training_data:
 
 #buffering to avoid bottlenecks
 
-AUTOTUNE = tf.data.experimental.AUTOTUNE
-training_data = training_data.cache().prefetch(buffer_size=AUTOTUNE)
-val_data = training_data.cache().prefetch(buffer_size=AUTOTUNE)
-testing_data = testing_data.cache().prefetch(buffer_size=AUTOTUNE)
-num_classes = 5
+# AUTOTUNE = tf.data.experimental.AUTOTUNE
+# training_data = training_data.cache()
+# testing_data = testing_data.cache()
+# val_data = val_data.cache()
+# training_data = training_data.prefetch(buffer_size=AUTOTUNE)
+# val_data = training_data.prefetch(buffer_size=AUTOTUNE)
+# testing_data = testing_data.prefetch(buffer_size=AUTOTUNE)
+# num_classes = 5
 
 #normalizing RBG colors (1-255) for first batch
-normalization_layer = tf.keras.layers.experimental.preprocessing.Rescaling(1./255)
+normalization_layer = tf.keras.layers.experimental.preprocessing.Rescaling(1./255, input_shape=(1024,768,3))
 normalized_training_data = training_data.map(lambda x, y: (normalization_layer(x), y))
 image_batch, labels_batch = next(iter(normalized_training_data))
 first_image = image_batch[0]
@@ -88,27 +91,34 @@ print(np.min(first_image), np.max(first_image))
 
 #normalizing RBG colors (1-255) for first batch
 normalized_test_data = testing_data.map(lambda x, y: (normalization_layer(x), y))
-image_batch, labels_batch = next(iter(normalized_test_data))
-first_image = image_batch[0]
-# Notice the pixels values are now in `[0,1]`.
-print(np.min(first_image), np.max(first_image)) 
 
+
+#normalizing RBG colors (1-255) for first batch
+normalized_val_data = val_data.map(lambda x, y: (normalization_layer(x), y))
+
+
+AUTOTUNE = tf.data.experimental.AUTOTUNE
+normalized_training_data = normalized_training_data.cache().prefetch(buffer_size=AUTOTUNE)
+normalized_testing_data = normalized_test_data.cache().prefetch(buffer_size=AUTOTUNE)
+normalized_val_data = normalized_val_data.cache().prefetch(buffer_size=AUTOTUNE)
 
 
 model = tf.keras.Sequential([
-  layers.experimental.preprocessing.Rescaling(1./255, input_shape=(1024, 768, 3)),
-  layers.experimental.preprocessing.Resizing(
-      1024, 768, interpolation='bilinear', name=None
-),
-  layers.Conv2D(32, 3, activation='relu'),
+  #layers.experimental.preprocessing.Rescaling(1./255, input_shape=(1024, 768, 3)),
+  #layers.experimental.preprocessing.Resizing(
+    #  1024, 768, interpolation='bilinear', name=None
+#),
+  layers.Conv2D(32, kernel_size =(5,5), activation='relu'),
+  layers.MaxPooling2D(),
+  layers.Conv2D(32, kernel_size =(3,3), activation='relu'),
   layers.MaxPooling2D(),
   layers.Conv2D(32, 3, activation='relu'),
   layers.MaxPooling2D(),
-  layers.Conv2D(32, 3, activation='relu'),
-  layers.MaxPooling2D(),
+  layers.Dropout(.25),
   layers.Flatten(),
   layers.Dense(128, activation='relu'),
-  layers.Dense(num_classes)
+  layers.Dropout(.25),
+  layers.Dense(num_classes,activation='softmax')
 ])
 
 model.compile(
@@ -116,7 +126,8 @@ model.compile(
   loss=tf.losses.SparseCategoricalCrossentropy(from_logits=True),
   metrics=['accuracy'])
 
-model.summary()
 
-model.fit(training_data,validation_data=val_data,epochs=3)
+
+model.fit(normalized_training_data,validation_data=normalized_val_data,epochs=3)
+model.summary()
 score = model.evaluate(X_test, Y_test, verbose=2)
