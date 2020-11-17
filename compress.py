@@ -15,7 +15,7 @@ import PIL
 import os
 import glob
 
-def compress_images(directory='/Users/ericrasmussen/Desktop/ML and AI/Project/archive-1/resized train 15', quality=25):
+def compress_images(directory='/Users/ericrasmussen/Desktop/ML and AI/Project/Messydor/Messidor-small/IMAGES-1', quality=5):
     # 1. If there is a directory then change into it, else perform the next operations inside of the 
     # current working directory:
     if directory:
@@ -36,5 +36,6 @@ def compress_images(directory='/Users/ericrasmussen/Desktop/ML and AI/Project/ar
 
         # 5. Compress every image and save it with a new name:
         img.save("Compressed_"+image, optimize=True, quality=quality)
+        
         
 compress_images()
