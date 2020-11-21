@@ -13,15 +13,15 @@ import tensorflow as tf
 from tensorflow.keras import layers
 import matplotlib.pyplot as plt
 
-trainLabels15 = pd.read_csv("/Users/ericrasmussen/Desktop/ML and AI/Project/archive-1/labels/trainLabels15.csv").values
-Test_labels15 = pd.read_csv("/Users/ericrasmussen/Desktop/ML and AI/Project/archive-1/labels/testLabels15.csv").values
+trainLabels15 = pd.read_csv("./archive/labels/trainLabels15.csv").values
+Test_labels15 = pd.read_csv("./archive/labels/testLabels15.csv").values
 
 Y_test = Test_labels15[:,1].tolist()
 Tf = trainLabels15[:,1].tolist()
 
 
 training_data = tf.keras.preprocessing.image_dataset_from_directory(
-    directory="/Users/ericrasmussen/Desktop/ML and AI/Project/archive-1/",
+    directory="./archive/train",
     labels= Tf,
     label_mode="int",
     validation_split=0.2,
@@ -32,7 +32,7 @@ training_data = tf.keras.preprocessing.image_dataset_from_directory(
     image_size=(1024, 768)
 )
 val_data = tf.keras.preprocessing.image_dataset_from_directory(
-  directory="/Users/ericrasmussen/Desktop/ML and AI/Project/archive-1/",
+  directory="./archive/train",
   labels= Tf,
   label_mode="int",
   validation_split=0.2,
@@ -43,7 +43,7 @@ val_data = tf.keras.preprocessing.image_dataset_from_directory(
   image_size=(1024, 768)
 )
 testing_data = tf.keras.preprocessing.image_dataset_from_directory(
-    directory="/Users/ericrasmussen/Desktop/ML and AI/Project/archive-2/",
+    directory="./archive/test",
     labels= Y_test,
     label_mode="int",
     color_mode="rgb",
@@ -51,7 +51,7 @@ testing_data = tf.keras.preprocessing.image_dataset_from_directory(
     image_size=(1024, 768)
 )
 
-print(training_data.list_files("/Users/ericrasmussen/Desktop/ML and AI/Project/archive-1/resized train 15/*.jpg"))
+# print(training_data.list_files("/Users/ericrasmussen/Desktop/ML and AI/Project/archive-1/resized train 15/*.jpg"))
 num_classes = 5
 
 # object_methods = [method_name for method_name in dir(training_data)
@@ -100,9 +100,9 @@ normalized_val_data = val_data.map(lambda x, y: (normalization_layer(x), y))
 
 
 AUTOTUNE = tf.data.experimental.AUTOTUNE
-normalized_training_data = normalized_training_data.cache().prefetch(buffer_size=AUTOTUNE)
-normalized_testing_data = normalized_test_data.cache().prefetch(buffer_size=AUTOTUNE)
-normalized_val_data = normalized_val_data.cache().prefetch(buffer_size=AUTOTUNE)
+normalized_training_data = normalized_training_data.prefetch(buffer_size=AUTOTUNE)
+normalized_testing_data = normalized_test_data.prefetch(buffer_size=AUTOTUNE)
+normalized_val_data = normalized_val_data.prefetch(buffer_size=AUTOTUNE)
 
 
 model = tf.keras.Sequential([
@@ -132,4 +132,4 @@ model.compile(
 
 model.fit(normalized_training_data,validation_data=normalized_val_data,epochs=3)
 model.summary()
-score = model.evaluate(X_test, Y_test, verbose=2)
+# score = model.evaluate(X_test, Y_test, verbose=2)
