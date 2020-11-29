@@ -19,9 +19,9 @@ from tensorflow.python.keras.callbacks import TensorBoard
 # gpus = tf.config.experimental.list_physical_devices('GPU')
 # tf.config.experimental.set_virtual_device_configuration(gpus[0], [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=2500)])
 
-# photoDirectory = "./Compressed_Square_Structured/"
+photoDirectory = "./Compressed_Square_Structured/"
 # photoDirectory = "./Cropped_Resized_Structured/"
-photoDirectory = "./Compressed_Square_Augment_Rotate_Structured/"
+# photoDirectory = "./Compressed_Square_Augment_Rotate_Structured/"
 
 img_height = 330
 img_width = 330
