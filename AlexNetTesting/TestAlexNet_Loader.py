@@ -10,15 +10,16 @@ import tensorflow.compat.v1.keras.backend as K
 import pandas as pd
 from keras.models import Sequential
 from keras.layers import Dense, Conv2D, MaxPooling2D, Dropout, Flatten
-from keras.optimizers import Adam
 from tensorflow.keras import regularizers
 
 from time import time
 from tensorflow.python.keras.callbacks import TensorBoard
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
-# gpus = tf.config.experimental.list_physical_devices('GPU')
-# tf.config.experimental.set_virtual_device_configuration(gpus[0], [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=2500)])
+from tensorflow.python.keras.optimizer_v2.adam import Adam
+
+gpus = tf.config.experimental.list_physical_devices('GPU')
+tf.config.experimental.set_virtual_device_configuration(gpus[0], [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=2000)])
 
 photoDirectory = "./Compressed_Square_Structured/"
 # photoDirectory = "./Cropped_Resized_Structured/"
@@ -27,21 +28,23 @@ photoDirectory = "./Compressed_Square_Structured/"
 img_height = 330
 img_width = 330
 
-batchSize = 100
+batchSize = 25
 
 train_datagen = ImageDataGenerator(
   rescale=1./255,
-  rotation_range=30,
-  zoom_range=0.1,
+  # rotation_range=90,
+  # zoom_range=[0.5,1.0],
+  # brightness_range=[0.5,1.0],
   horizontal_flip=True,
-  validation_split=0.15
+  vertical_flip=True,
+  validation_split=0.2
 )
 
 training_data = train_datagen.flow_from_directory(
     photoDirectory,
     target_size=(img_height, img_width),
     batch_size=batchSize,
-    class_mode="binary",
+    class_mode="categorical",
     color_mode="rgb",
     subset='training'
 )
@@ -49,7 +52,7 @@ val_data = train_datagen.flow_from_directory(
   photoDirectory,
     target_size=(img_height, img_width),
     batch_size=batchSize,
-    class_mode="binary",
+    class_mode="categorical",
     color_mode="rgb",
     subset='validation'
 )
@@ -102,50 +105,56 @@ num_classes = 5
 #normalized_val_data = val_data.map(lambda x, y: (normalization_layer(x), y))
 
 
-AUTOTUNE = tf.data.experimental.AUTOTUNE
+# AUTOTUNE = tf.data.experimental.AUTOTUNE
 # training_data = training_data.cache().shuffle(1000).prefetch(buffer_size=AUTOTUNE)
 #normalized_testing_data = normalized_test_data.cache().prefetch(buffer_size=AUTOTUNE)
 # val_data = val_data.cache().prefetch(buffer_size=AUTOTUNE)
 
 # AlexNet Base
 
+# initializer = tf.keras.initializers.GlorotNormal()
+# initializer = tf.keras.initializers.GlorotUniform()
+initializer = tf.keras.initializers.HeNormal()
+# initializer = tf.keras.initializers.HeUniform()
+
 model = tf.keras.models.Sequential([
-    layers.Conv2D(filters=96, kernel_size=(11,11), strides=(4,4), activation='relu', input_shape=(img_height,img_width,3)),
+    layers.Conv2D(filters=96, kernel_size=(11,11), strides=(4,4), activation='relu', input_shape=(img_height,img_width,3), kernel_initializer=initializer),
     layers.BatchNormalization(),
     layers.MaxPool2D(pool_size=(3,3), strides=(2,2)),
-    layers.Conv2D(filters=256, kernel_size=(5,5), strides=(1,1), activation='relu', padding="same"),
+    layers.Conv2D(filters=256, kernel_size=(5,5), strides=(1,1), activation='relu', padding="same", kernel_initializer=initializer),
     layers.BatchNormalization(),
     layers.MaxPool2D(pool_size=(3,3), strides=(2,2)),
-    layers.Conv2D(filters=384, kernel_size=(3,3), strides=(1,1), activation='relu', padding="same"),
+    layers.Conv2D(filters=384, kernel_size=(3,3), strides=(1,1), activation='relu', padding="same", kernel_initializer=initializer),
     layers.BatchNormalization(),
-    layers.Conv2D(filters=384, kernel_size=(1,1), strides=(1,1), activation='relu', padding="same"),
+    layers.Conv2D(filters=384, kernel_size=(1,1), strides=(1,1), activation='relu', padding="same", kernel_initializer=initializer),
     layers.BatchNormalization(),
-    layers.Conv2D(filters=256, kernel_size=(1,1), strides=(1,1), activation='relu', padding="same"),
+    layers.Conv2D(filters=256, kernel_size=(1,1), strides=(1,1), activation='relu', padding="same", kernel_initializer=initializer),
     layers.BatchNormalization(),
     layers.MaxPool2D(pool_size=(3,3), strides=(2,2)),
     layers.Flatten(),
-    layers.Dense(4096, activation='relu'),
+    layers.Dense(4096, activation='relu', kernel_initializer=initializer),
     layers.Dropout(0.5),
-    layers.Dense(4096, activation='relu'),
+    layers.Dense(4096, activation='relu', kernel_initializer=initializer),
     layers.Dropout(0.5),
-    layers.Dense(num_classes, activation='softmax')
+    layers.Dense(num_classes, activation='softmax', kernel_initializer=initializer)
 ])
 
 opt = SGD(lr=0.001)
-model.compile(optimizer= opt, loss=tf.losses.SparseCategoricalCrossentropy(from_logits=True), metrics=['accuracy'])
+# opt = Adam()
+model.compile(optimizer=opt, loss='categorical_crossentropy', metrics=['accuracy'])
 # model.compile(optimizer= tf.keras.optimizers.Adam(), loss=tf.keras.losses.categorical_crossentropy, metrics=['accuracy'])
 
 # model.summary()
 
-runName = 'AlexNet_ImageDataGenerator_100_Batch'
+runName = 'AlexNet_HVFlip_Generator'
 # runName = 'AlexNet_Square_Resized_CUDA_50_Batch'
-epochLimit = 500
+epochLimit = 10000
 
 tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir='./logs/'+runName)
 
 # run tensorboard --logdir 'directory'
 
-model.fit(training_data,validation_data=val_data,epochs=epochLimit, callbacks=[tensorboard_callback])
+model.fit_generator(training_data,validation_data=val_data,epochs=epochLimit, callbacks=[tensorboard_callback])
 
 # AlexNet L2 Reg
 
