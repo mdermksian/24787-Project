@@ -17,11 +17,14 @@ from time import time
 from tensorflow.python.keras.callbacks import TensorBoard
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from keras.models import Model
+from collections import Counter
 
-gpus = tf.config.experimental.list_physical_devices('GPU')
-tf.config.experimental.set_virtual_device_configuration(gpus[0], [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=2500)])
+# gpus = tf.config.experimental.list_physical_devices('GPU')
+# tf.config.experimental.set_virtual_device_configuration(gpus[0], [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=2500)])
 
-photoDirectory = "./Compressed_Square_Structured/"
+photoDirectory = "./Gaussian_Filtered_Class/"
+
+# photoDirectory = "./Compressed_Square_Structured/"
 # photoDirectory = "./Cropped_Resized_Structured/"
 # photoDirectory = "./Compressed_Square_Augment_Rotate_Structured/"
 
@@ -135,7 +138,7 @@ AUTOTUNE = tf.data.experimental.AUTOTUNE
 
 #ResNet50
 
-base_model = ResNet50(weights = None, include_top = False, input_shape = (img_height, img_width, 3))
+base_model = ResNet50(weights = 'imagenet', include_top = False, input_shape = (img_height, img_width, 3))
 x = base_model.output
 x = Flatten()(x)
 x = Dropout(0.2)(x)
@@ -146,13 +149,16 @@ predictions = Dense(num_classes, activation = 'softmax')(x)
 model = Model(inputs = base_model.input, outputs = predictions)
 
 
-opt = SGD(lr=0.001)
+opt = SGD(lr=0.00001, momentum = 0.9)
 model.compile(optimizer= opt, loss = 'categorical_crossentropy', metrics=['accuracy'])
 # model.compile(optimizer= tf.keras.optimizers.Adam(), loss=tf.keras.losses.categorical_crossentropy, metrics=['accuracy'])
 
 # model.summary()
+counter = Counter(training_data.classes)
+max_val = float(max(counter.values()))
+class_weights = {class_id: max_val/num_images for class_id, num_images in counter.items()}
 
-runName = 'ResNet_ImageDataGenerator_100_Batch_New_Loader'
+runName = 'ResNet_Gaussian_0.00001_0.9'
 # runName = 'AlexNet_Square_Resized_CUDA_50_Batch'
 epochLimit = 500
 
@@ -160,8 +166,8 @@ tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir='./logs/'+runName)
 
 # run tensorboard --logdir 'directory'
 
-model.fit(training_data,validation_data=val_data,epochs=epochLimit, callbacks=[tensorboard_callback])
-
+# model.fit(training_data,validation_data=val_data,epochs=epochLimit, callbacks=[tensorboard_callback])
+hist = model.fit(training_data, steps_per_epoch = training_data.samples//training_data.batch_size,validation_data = val_data, validation_steps = val_data.samples//val_data.batch_size, epochs = epochLimit, callbacks = [tensorboard_callback])
 # AlexNet L2 Reg
 
 # reg = regularizers.l1_l2()
