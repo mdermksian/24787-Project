@@ -18,12 +18,17 @@ from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
 from tensorflow.python.keras.optimizer_v2.adam import Adam
 
+import seaborn as sns
+import io
+
 gpus = tf.config.experimental.list_physical_devices('GPU')
-tf.config.experimental.set_virtual_device_configuration(gpus[0], [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=2000)])
+tf.config.experimental.set_virtual_device_configuration(gpus[0], [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=1500)])
 
 photoDirectory = "./Compressed_Square_Structured/"
+# photoDirectory = "./Compressed_Square_Binary/"
 # photoDirectory = "./Cropped_Resized_Structured/"
 # photoDirectory = "./Compressed_Square_Augment_Rotate_Structured/"
+# photoDirectory = "./Kaggle"
 
 img_height = 330
 img_width = 330
@@ -33,10 +38,10 @@ batchSize = 25
 train_datagen = ImageDataGenerator(
   rescale=1./255,
   # rotation_range=90,
-  # zoom_range=[0.5,1.0],
+  # zoom_range=[0.75,1.0],
   # brightness_range=[0.5,1.0],
-  horizontal_flip=True,
-  vertical_flip=True,
+  # horizontal_flip=True,
+  # vertical_flip=True,
   validation_split=0.2
 )
 
@@ -59,6 +64,7 @@ val_data = train_datagen.flow_from_directory(
 
 # print(training_data.list_files("/Users/ericrasmussen/Desktop/ML and AI/Project/archive-1/resized train 15/*.jpg"))
 num_classes = 5
+classes=[0,1,2,3,4]
 
 # object_methods = [method_name for method_name in dir(training_data)
 #                   if callable(getattr(training_data, method_name))]
@@ -146,15 +152,53 @@ model.compile(optimizer=opt, loss='categorical_crossentropy', metrics=['accuracy
 
 # model.summary()
 
-runName = 'AlexNet_HVFlip_Generator'
+runName = 'AlexNet_Square_Confusion'
 # runName = 'AlexNet_Square_Resized_CUDA_50_Batch'
 epochLimit = 10000
 
+file_writer = tf.summary.create_file_writer('./logs/' + runName + '/cm')
+
+def log_confusion_matrix(epoch, logs):
+  # Use the model to predict the values from the validation dataset.
+  test_pred = model.predict_classes(val_data)
+
+  con_mat = tf.math.confusion_matrix(labels=val_data.labels, predictions=test_pred).numpy()
+  con_mat_norm = np.around(con_mat.astype('float') / con_mat.sum(axis=1)[:, np.newaxis], decimals=2)
+
+  con_mat_df = pd.DataFrame(con_mat_norm,
+                     index = classes, 
+                     columns = classes)
+
+  figure = plt.figure(figsize=(8, 8))
+  sns.heatmap(con_mat_df, annot=True,cmap=plt.cm.Blues)
+  plt.tight_layout()
+  plt.ylabel('True label')
+  plt.xlabel('Predicted label')
+  
+  buf = io.BytesIO()
+  plt.savefig(buf, format='png')
+
+  plt.close(figure)
+  buf.seek(0)
+  image = tf.image.decode_png(buf.getvalue(), channels=4)
+
+  image = tf.expand_dims(image, 0)
+  
+  # Log the confusion matrix as an image summary.
+  with file_writer.as_default():
+    tf.summary.image("Confusion Matrix", image, step=epoch)
+
+
+
 tensorboard_callback = tf.keras.callbacks.TensorBoard(log_dir='./logs/'+runName)
+
+cm_callback =tf.keras.callbacks.LambdaCallback(on_epoch_end=log_confusion_matrix)
 
 # run tensorboard --logdir 'directory'
 
-model.fit_generator(training_data,validation_data=val_data,epochs=epochLimit, callbacks=[tensorboard_callback])
+model.fit_generator(training_data,validation_data=val_data,epochs=epochLimit, callbacks=[tensorboard_callback, cm_callback])
+
+
 
 # AlexNet L2 Reg
 
